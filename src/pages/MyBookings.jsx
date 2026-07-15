@@ -354,27 +354,65 @@ function TicketModal({ booking, onClose }) {
         typeof navigator.canShare === 'function' &&
         navigator.canShare({ files: [file] })
 
-      // 1b) MOBILE MESSENGER ONLY: the in-app browser blocks automatic downloads,
-      //     and the user reported the inline long-press "Save Image" fallback
-      //     doesn't reliably save either. So on a phone inside Messenger we open
-      //     the native OS share sheet ("share feed") FIRST, letting the user
-      //     "Save to Photos" / share the ticket wherever they want. This path is
-      //     scoped to mobile Messenger only; every other device keeps the exact
-      //     behavior above (desktop + normal mobile browsers = automatic
-      //     download; other in-app browsers fall through to the shared logic).
-      if (isMobileDevice() && isMessengerInApp() && canShareFile) {
+      // 1b) MOBILE MESSENGER ONLY: open the native OS share sheet ("share feed").
+      //
+      //     Why this is NOT gated behind `canShareFile`:
+      //     Facebook Messenger's in-app webview exposes `navigator.share` but
+      //     its `navigator.canShare({ files })` almost always returns false (or
+      //     `canShare` is missing entirely). The previous version required
+      //     `canShareFile === true`, so inside Messenger this branch was skipped,
+      //     the code silently dropped to the inline long-press fallback, and the
+      //     user saw "no change" / still couldn't save. That was the bug.
+      //
+      //     So here - and ONLY on a phone inside Messenger - we call
+      //     navigator.share directly whenever it exists:
+      //       a) First try sharing the actual PNG file (best: "Save to Photos").
+      //       b) If the file share is rejected (Messenger often refuses files),
+      //          retry navigator.share with just title/text so the share sheet
+      //          ("share feed") still opens reliably.
+      //       c) Only if navigator.share is unavailable or truly fails do we
+      //          fall through to the universal inline long-press fallback.
+      //
+      //     This path is scoped strictly to mobile Messenger; every other
+      //     device keeps the exact behavior above (desktop + normal mobile
+      //     browsers = automatic download; other in-app browsers fall through
+      //     to the shared logic below).
+      if (isMobileDevice() && isMessengerInApp() && typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
+        // a) Try sharing the PNG file itself (skip only if canShare explicitly
+        //    says files are unsupported, to avoid a guaranteed throw).
+        const fileShareWorthTrying = typeof navigator.canShare !== 'function' || navigator.canShare({ files: [file] })
+        if (fileShareWorthTrying) {
+          try {
+            await navigator.share({
+              files: [file],
+              title: 'Booking Reservation',
+              text: `Lindaville Phase 2 - Pickleball - ${makeReference(booking.id)}`,
+            })
+            // Share sheet completed (saved/shared) - done.
+            return
+          } catch (shareErr) {
+            // User dismissed the share sheet: stop quietly, nothing went wrong.
+            if (shareErr && shareErr.name === 'AbortError') return
+            // Otherwise fall through to the text-only share retry below.
+          }
+        }
+
+        // b) File share unavailable or rejected: still open the native share
+        //    sheet ("share feed") with text so the user gets the same OS share
+        //    experience they asked for, instead of the silent inline fallback.
         try {
           await navigator.share({
-            files: [file],
             title: 'Booking Reservation',
             text: `Lindaville Phase 2 - Pickleball - ${makeReference(booking.id)}`,
           })
-          // Share sheet completed (saved/shared) - done.
+          // Share sheet opened/completed. We still surface the inline image
+          // below (after this block) is NOT reached because we return here;
+          // the user can re-tap if they specifically want the file.
           return
         } catch (shareErr) {
           // User dismissed the share sheet: stop quietly, nothing went wrong.
           if (shareErr && shareErr.name === 'AbortError') return
-          // Any other error -> fall through to the inline long-press fallback.
+          // Any other failure -> fall through to the inline long-press fallback.
         }
       }
 
