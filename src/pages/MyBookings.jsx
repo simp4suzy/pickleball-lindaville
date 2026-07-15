@@ -40,8 +40,8 @@ function formatTimeToAMPM(timeStr) {
 
 function formatPeso(amount) {
   const n = Number(amount)
-  if (Number.isNaN(n)) return 'Ã¢â€šÂ±0'
-  return n % 1 === 0 ? `Ã¢â€šÂ±${n.toLocaleString('en-PH')}` : `Ã¢â€šÂ±${n.toLocaleString('en-PH', { minimumFractionDigits: 2 })}`
+  if (Number.isNaN(n)) return '₱0'
+  return n % 1 === 0 ? `₱${n.toLocaleString('en-PH')}` : `₱${n.toLocaleString('en-PH', { minimumFractionDigits: 2 })}`
 }
 
 // Derive the same short, human-readable booking reference the confirmation
@@ -79,22 +79,22 @@ function StatusBadge({ status }) {
   return <span className={`badge ${cls[status] || 'badge-cancelled'}`}>{status}</span>
 }
 
-/* Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
+/* ======================================================================
    BookingTicket
    ----------------------------------------------------------------------
    A screenshot-ready reservation summary for a SINGLE booking, matching the
    post-booking BookingConfirmation card. Rendered inside a modal so a user
    can pull up the exact same "e-ticket" anytime without rebooking:
 
-     Ã¢â‚¬Â¢ Booking reference ID (LV-XXXXXXXX)
-     Ã¢â‚¬Â¢ Court reserved
-     Ã¢â‚¬Â¢ Date
-     Ã¢â‚¬Â¢ Time slot
-     Ã¢â‚¬Â¢ Total amount due (per-head rate Ãƒâ€” players)
-     Ã¢â‚¬Â¢ Pay-on-site note
+     • Booking reference ID (LV-XXXXXXXX)
+     • Court reserved
+     • Date
+     • Time slot
+     • Total amount due (per-head rate × players)
+     • Pay-on-site note
 
    A phone screenshot of just this card is a complete, self-explanatory ticket.
-   Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â */
+   ====================================================================== */
 function BookingTicket({ booking }) {
   const reference = makeReference(booking.id)
   const players = booking.players ?? 1
@@ -109,7 +109,7 @@ function BookingTicket({ booking }) {
       <div className="bg-court-grad px-6 py-5 text-white sm:px-7">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <span className="type-eyebrow block text-amber-200">Lindaville Phase 2 Ã‚Â· Pickleball</span>
+            <span className="type-eyebrow block text-amber-200">Lindaville Phase 2 · Pickleball</span>
             <span className="font-display mt-0.5 block text-lg font-extrabold">Booking Reservation</span>
           </div>
           <span className="badge shrink-0 border-white/25 bg-white/15 capitalize text-white">{booking.status}</span>
@@ -143,7 +143,7 @@ function BookingTicket({ booking }) {
               </div>
               <div className="shrink-0 text-right">
                 <div className="font-semibold tabular-nums text-court-800">
-                  {formatTimeToAMPM(booking.time_slots.start_time)} Ã¢â‚¬â€œ {formatTimeToAMPM(booking.time_slots.end_time)}
+                  {formatTimeToAMPM(booking.time_slots.start_time)} – {formatTimeToAMPM(booking.time_slots.end_time)}
                 </div>
                 <div className="text-xs font-medium text-court-400">{formatPeso(price)}/head</div>
               </div>
@@ -159,7 +159,7 @@ function BookingTicket({ booking }) {
             <div>
               <div className="type-eyebrow text-court-400">Total Amount Due</div>
               <div className="mt-0.5 text-xs font-medium text-court-500">
-                {formatPeso(price)}/head Ãƒâ€” {players} {players === 1 ? 'player' : 'players'}
+                {formatPeso(price)}/head × {players} {players === 1 ? 'player' : 'players'}
               </div>
             </div>
             <div className="font-display text-3xl font-extrabold tabular-nums text-court-900">{formatPeso(total)}</div>
@@ -247,18 +247,15 @@ function TicketModal({ booking, onClose }) {
   // end with a universal fallback that works even inside locked-down in-app
   // browsers (Facebook Messenger / Instagram / Facebook webviews):
   //
-  //   1. navigator.share({ files })  -> native share sheet (modern mobile
-  //      browsers). This is where users tap "Save Image".
-  //   2. <a download> via a blob object URL -> real file download
-  //      (desktop browsers, Android Chrome).
+  //   1. <a download> via a blob object URL -> a real, automatic file download
+  //      (desktop browsers, Android Chrome, iOS/iPadOS Safari 13+). This is
+  //      the default, expected "save image" behavior on every real browser.
+  //   2. navigator.share({ files }) -> OS share sheet, used only as a fallback
+  //      where the download attribute is not honored but file sharing is.
   //   3. Inline the PNG in the modal -> the user long-presses / right-clicks
   //      the image and picks "Save Image". This ALWAYS works, including in
   //      Messenger's in-app browser which ignores `download` and frequently
   //      refuses navigator.share of files.
-  //
-  // The previous code stopped at step 2. In the Messenger webview step 1
-  // either wasn't offered or threw, and step 2 was silently ignored (the
-  // `download` attribute is not honored there), so nothing happened at all.
   const handleDownload = useCallback(async () => {
     if (!ticketRef.current || downloading) return
     setDownloading(true)
@@ -271,49 +268,53 @@ function TicketModal({ booking, onClose }) {
 
     try {
       // Produce a real PNG Blob (not a giant data URL).
+      //
+      // skipFonts:true is critical here. Our display/body fonts load from
+      // Google Fonts (fonts.googleapis.com / fonts.gstatic.com), which are
+      // cross-origin. Without this flag html-to-image tries to fetch and
+      // inline those stylesheets + woff2 files; the CORS-protected requests
+      // frequently throw or hang, which was making "Save image" fail or take
+      // forever. Skipping font embedding lets the capture fall back to the
+      // already-rendered glyphs / system font stack, which rasterizes fine.
       const blob = await toBlob(ticketRef.current, {
         // 2x for a crisp, retina-quality image; solid bg so no transparency.
         pixelRatio: 2,
         backgroundColor: '#ffffff',
         cacheBust: true,
+        skipFonts: true,
+        // Don't try to serialize cross-origin <link>/<style> nodes that live
+        // outside the ticket; they add nothing to the rasterized card and can
+        // trigger CORS errors during cloning.
+        filter: (node) => {
+          const tag = node.tagName ? node.tagName.toUpperCase() : ''
+          if (tag === 'LINK' || tag === 'SCRIPT') return false
+          return true
+        },
       })
       if (!blob) throw new Error('Image generation returned an empty blob.')
 
       const fileName = `booking-${makeReference(booking.id)}.png`
-      const file = new File([blob], fileName, { type: 'image/png' })
 
-      // 1) Preferred on mobile browsers: native share sheet with the image
-      //    file. canShare guards devices that support share() but not files.
-      if (
-        typeof navigator !== 'undefined' &&
-        typeof navigator.share === 'function' &&
-        typeof navigator.canShare === 'function' &&
-        navigator.canShare({ files: [file] })
-      ) {
-        try {
-          await navigator.share({
-            files: [file],
-            title: 'Booking Reservation',
-            text: `Lindaville Phase 2 - Pickleball - ${makeReference(booking.id)}`,
-          })
-          // Shared successfully - done.
-          return
-        } catch (shareErr) {
-          // User dismissed the share sheet: stop quietly, nothing went wrong.
-          if (shareErr && shareErr.name === 'AbortError') return
-          // Any other error (in-app webviews often throw NotAllowedError /
-          // DataError here) -> fall through to the download / inline fallback.
-        }
-      }
-
-      // 2) Desktop / Android Chrome: trigger a real file download via a blob
-      //    object URL. We detect whether the browser actually honors the
-      //    `download` attribute; in-app browsers (Messenger/IG/FB) do not, so
-      //    we skip straight to the inline fallback there instead of doing
-      //    nothing.
+      // Cross-device "save image" priority (download-first):
+      //
+      //   1. <a download> via a blob object URL -> a REAL, automatic file
+      //      download straight to the device's Downloads / Files. This is the
+      //      behavior the user expects from a "Save image" button and is
+      //      honored by every real browser: desktop (Chrome/Edge/Firefox/
+      //      Safari), Android Chrome, and iOS/iPadOS Safari 13+.
+      //   2. navigator.share({ files }) -> only used as a fallback when the
+      //      environment does NOT honor the download attribute (rare) but does
+      //      support sharing files. This is the OS share sheet.
+      //   3. Inline the PNG -> universal last resort for locked-down in-app
+      //      browsers (Messenger / Instagram / Facebook / TikTok) that block
+      //      both automatic downloads AND file sharing. The user long-presses
+      //      / right-clicks the image and chooses "Save Image".
+      const inApp = isInAppBrowser()
       const testLink = document.createElement('a')
-      const supportsDownloadAttr = 'download' in testLink && !isInAppBrowser()
+      // Real browsers honor <a download>; restricted in-app webviews do not.
+      const supportsDownloadAttr = 'download' in testLink && !inApp
 
+      // 1) Automatic download - the default, expected "save image" behavior.
       if (supportsDownloadAttr) {
         const objectUrl = URL.createObjectURL(blob)
         const link = document.createElement('a')
@@ -327,6 +328,32 @@ function TicketModal({ booking, onClose }) {
         return
       }
 
+      // 2) Fallback: some webviews block <a download> but still allow the OS
+      //    share sheet with a file attached. Offer it so the user can pick
+      //    "Save Image" / "Save to Photos" from there.
+      const file = new File([blob], fileName, { type: 'image/png' })
+      if (
+        typeof navigator !== 'undefined' &&
+        typeof navigator.share === 'function' &&
+        typeof navigator.canShare === 'function' &&
+        navigator.canShare({ files: [file] })
+      ) {
+        try {
+          await navigator.share({
+            files: [file],
+            title: 'Booking Reservation',
+            text: `Lindaville Phase 2 - Pickleball - ${makeReference(booking.id)}`,
+          })
+          // Shared/saved successfully - done.
+          return
+        } catch (shareErr) {
+          // User dismissed the share sheet: stop quietly, nothing went wrong.
+          if (shareErr && shareErr.name === 'AbortError') return
+          // Any other error (in-app webviews often throw NotAllowedError /
+          // DataError here) -> fall through to the inline fallback.
+        }
+      }
+
       // 3) Universal fallback (restricted in-app browsers such as Messenger):
       //    show the PNG inline so the user can long-press / right-click and
       //    choose "Save Image". This is the path that finally makes saving
@@ -334,7 +361,7 @@ function TicketModal({ booking, onClose }) {
       const previewUrl = URL.createObjectURL(blob)
       setSavedImageUrl(previewUrl)
       setDownloadError(
-        isInAppBrowser()
+        inApp
           ? 'Tip: press and hold the image below, then tap "Save Image". (Facebook Messenger blocks automatic downloads - opening this link in Chrome or Safari also works.)'
           : 'Press and hold (or right-click) the image below, then choose "Save Image".',
       )
@@ -370,7 +397,7 @@ function TicketModal({ booking, onClose }) {
       /*
         z-[100] keeps the whole dialog ABOVE the sticky app header (z-50), so the
         header can never paint over the ticket or swallow touch/scroll gestures
-        that start near the top of the screen Ã¢â‚¬â€ the original scroll bug.
+        that start near the top of the screen — the original scroll bug.
       */
       className="fixed inset-0 z-[100] flex items-stretch justify-center overflow-hidden bg-court-900/70 backdrop-blur-sm sm:items-center"
       role="dialog"
@@ -427,7 +454,7 @@ function TicketModal({ booking, onClose }) {
           </p>
         </div>
 
-        {/* Pinned action bar Ã¢â‚¬â€ always visible so downloading never requires scrolling. */}
+        {/* Pinned action bar — always visible so downloading never requires scrolling. */}
         <div className="mt-3 shrink-0">
           <button
             type="button"
@@ -441,7 +468,7 @@ function TicketModal({ booking, onClose }) {
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                   <path className="opacity-90" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                 </svg>
-                Preparing imageÃ¢â‚¬Â¦
+                Preparing image…
               </>
             ) : (
               <>
@@ -512,18 +539,18 @@ function BookingList({ title, list, isUpcoming, cancellingId, onCancel, onView }
                   <span className="text-2xl font-extrabold leading-none font-display">{new Intl.DateTimeFormat('en-US', { timeZone: TIMEZONE, day: 'numeric' }).format(new Date(booking.date + 'T00:00:00'))}</span>
                 </div>
                 <div>
-                  {/* Booking reference Ã¢â‚¬â€ the same code shown on the confirmation ticket */}
+                  {/* Booking reference — the same code shown on the confirmation ticket */}
                   <p className="font-display text-[11px] font-bold uppercase tracking-widest text-amber-500 select-all">
                     Ref {reference}
                   </p>
                   <p className="font-bold text-court-700 font-display">{booking.courts.name}</p>
                   <p className="text-sm" style={{ color: 'var(--ink-muted)' }}>{formatDisplayDate(booking.date)}</p>
                   <p className="font-semibold mt-1" style={{ color: 'var(--ink)' }}>
-                    {formatTimeToAMPM(booking.time_slots.start_time)} Ã¢â‚¬â€œ {formatTimeToAMPM(booking.time_slots.end_time)}
+                    {formatTimeToAMPM(booking.time_slots.start_time)} – {formatTimeToAMPM(booking.time_slots.end_time)}
                   </p>
                   <p className="mt-1.5 text-sm" style={{ color: 'var(--ink-muted)' }}>
                     <span className="font-semibold text-court-700">{formatPeso(price * players)}</span>
-                    <span className="mx-1.5 text-court-300">Ã‚Â·</span>
+                    <span className="mx-1.5 text-court-300">·</span>
                     {players} {players === 1 ? 'player' : 'players'}
                     <span className="text-court-400"> ({formatPeso(price)}/head)</span>
                   </p>
