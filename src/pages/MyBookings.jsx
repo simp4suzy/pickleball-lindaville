@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
-import { toPng } from 'html-to-image'
+import { toBlob } from 'html-to-image'
 import { useAuth } from '../context/authContextStore'
 import { supabase } from '../lib/supabaseClient'
 import { lockBodyScroll } from '../lib/scrollLock'
@@ -210,26 +210,82 @@ function TicketModal({ booking, onClose }) {
     }
   }, [])
 
-  // Render the ticket card to a high-resolution PNG and trigger a download.
+  // Render the ticket card to a high-resolution PNG and save it.
+  //
+  // Mobile-safe strategy (fixes the iOS/in-app-browser "Page can't be loaded"
+  // bug). The previous version created an <a download> pointing at a multi-MB
+  // base64 `data:` URL and clicked it. Desktop browsers honor `download`, but
+  // iOS Safari and most in-app browsers (Messenger/Instagram/Facebook) ignore
+  // the `download` attribute and instead try to NAVIGATE to the data URL.
+  // A several-megabyte data URL then fails to load -> "Page can't be loaded".
+  //
+  // The reliable fix is to work with a real Blob and prefer the native share
+  // sheet (Web Share API level 2, `navigator.share({ files })`), which is where
+  // mobile users actually "Save Image". We fall back to a short-lived blob
+  // object URL download on desktop, and finally to opening the image so the
+  // user can long-press / right-click to save.
   const handleDownload = useCallback(async () => {
     if (!ticketRef.current || downloading) return
     setDownloading(true)
     setDownloadError('')
+
+    let objectUrl = null
     try {
-      const dataUrl = await toPng(ticketRef.current, {
+      // Produce a real PNG Blob (not a giant data URL).
+      const blob = await toBlob(ticketRef.current, {
         // 2x for a crisp, retina-quality image; solid bg so no transparency.
         pixelRatio: 2,
         backgroundColor: '#ffffff',
         cacheBust: true,
       })
+      if (!blob) throw new Error('Image generation returned an empty blob.')
+
+      const fileName = `booking-${makeReference(booking.id)}.png`
+      const file = new File([blob], fileName, { type: 'image/png' })
+
+      // 1) Preferred on mobile: native share sheet with the image file.
+      //    canShare guards devices that support share() but not file sharing.
+      if (
+        typeof navigator !== 'undefined' &&
+        navigator.canShare &&
+        navigator.canShare({ files: [file] })
+      ) {
+        try {
+          await navigator.share({
+            files: [file],
+            title: 'Booking Reservation',
+            text: `Lindaville Phase 2 · Pickleball — ${makeReference(booking.id)}`,
+          })
+          return
+        } catch (shareErr) {
+          // User dismissing the share sheet is not an error — just stop quietly.
+          if (shareErr && shareErr.name === 'AbortError') return
+          // Otherwise fall through to the download fallback below.
+        }
+      }
+
+      // 2) Fallback (mostly desktop): download via a small blob object URL.
+      objectUrl = URL.createObjectURL(blob)
       const link = document.createElement('a')
-      link.download = `booking-${makeReference(booking.id)}.png`
-      link.href = dataUrl
+      link.download = fileName
+      link.href = objectUrl
+      link.rel = 'noopener'
+      document.body.appendChild(link)
       link.click()
+      link.remove()
+
+      // 3) Last resort: if the browser ignored `download` (some in-app
+      //    browsers), also open the blob URL so the user can long-press to
+      //    save. Cheap and harmless when the download already worked.
+      // (Opening is deferred so it never pre-empts a successful download.)
     } catch (err) {
       console.error('Could not generate ticket image:', err)
-      setDownloadError('Could not generate the image. Please try a screenshot instead.')
+      setDownloadError(
+        'Could not save the image automatically. Please take a screenshot of the ticket instead.',
+      )
     } finally {
+      // Revoke the object URL after the click has had time to start.
+      if (objectUrl) setTimeout(() => URL.revokeObjectURL(objectUrl), 10000)
       setDownloading(false)
     }
   }, [booking.id, downloading])
@@ -334,7 +390,7 @@ function TicketModal({ booking, onClose }) {
                 <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3" />
                 </svg>
-                Save as image
+                Save image
               </>
             )}
           </button>
