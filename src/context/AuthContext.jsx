@@ -1,8 +1,6 @@
-import { createContext, useContext, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
-
-// Context lets us share the user's login status across the whole app easily.
-const AuthContext = createContext({})
+import { AuthContext } from './authContextStore'
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
@@ -35,5 +33,3 @@ export function AuthProvider({ children }) {
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
-
-export const useAuth = () => useContext(AuthContext)

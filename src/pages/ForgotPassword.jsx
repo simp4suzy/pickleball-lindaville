@@ -1,57 +1,69 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { useAuth } from '../context/AuthContext'
+import { useAuth } from '../context/authContextStore'
+import AuthLayout from '../components/AuthLayout'
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState('')
   const [message, setMessage] = useState('')
   const [error, setError] = useState(null)
+  const [loading, setLoading] = useState(false)
   const { resetPasswordForEmail } = useAuth()
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError(null)
     setMessage('')
-    
+    setLoading(true)
+
     const { error } = await resetPasswordForEmail(email)
     if (error) {
       setError(error.message)
     } else {
       setMessage('Password reset link sent! Check your email inbox.')
     }
+    setLoading(false)
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-      <div className="max-w-md w-full bg-white rounded-lg shadow-md p-8">
-        <h2 className="text-2xl font-bold text-green-600 mb-6 text-center">
-          Reset Password
-        </h2>
-        {error && <p className="text-red-500 mb-4 text-center">{error}</p>}
-        {message && <p className="text-green-500 mb-4 text-center">{message}</p>}
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-gray-700">Email</label>
-            <input
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-            />
-          </div>
-          <button
-            type="submit"
-            className="w-full bg-yellow-500 text-gray-900 font-semibold py-2 rounded-md hover:bg-yellow-600 transition"
-          >
-            Send Reset Link
-          </button>
-        </form>
-        <p className="mt-4 text-center text-gray-600">
-          Remembered your password?{' '}
-          <Link to="/login" className="text-green-600 hover:underline">Log In</Link>
+    <AuthLayout
+      eyebrow="Account recovery"
+      title="Reset your password"
+      subtitle="Enter your email and we'll send you a secure reset link."
+    >
+      {error && (
+        <p role="alert" className="mb-4 text-sm font-semibold text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2.5">
+          {error}
         </p>
-      </div>
-    </div>
+      )}
+      {message && (
+        <p role="status" className="mb-4 text-sm font-semibold text-court-700 bg-court-50 border border-court-100 rounded-lg px-3 py-2.5 flex items-center gap-2">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5" /></svg>
+          {message}
+        </p>
+      )}
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div>
+          <label htmlFor="email" className="field-label">Email</label>
+          <input
+            id="email"
+            type="email"
+            required
+            autoComplete="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="field-input focusable"
+            placeholder="you@example.com"
+          />
+        </div>
+        <button type="submit" disabled={loading} className="btn btn-amber w-full py-3.5 text-base font-extrabold">
+          {loading ? 'Sending…' : 'Send Reset Link'}
+        </button>
+      </form>
+      <p className="mt-6 text-center text-sm" style={{ color: 'var(--ink-soft)' }}>
+        Remembered your password?{' '}
+        <Link to="/login" className="link">Log in</Link>
+      </p>
+    </AuthLayout>
   )
 }

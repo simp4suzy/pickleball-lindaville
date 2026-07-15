@@ -1,0 +1,584 @@
+﻿<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Pickleball - Live Animated Background</title>
+<!--
+  Live animated pickleball background (premium).
+  Self-contained, no build step, no external assets.
+  Drop-in usage: keep <canvas id="pb-bg"> + the <script> block; put your own
+  auth/landing/dashboard markup inside .stage. Everything else is demo chrome.
+-->
+<style>
+  :root{
+    --bg-0:#080b0a;          /* off-black base (not pure #000) */
+    --bg-1:#0c1211;          /* raised panel */
+    --ink:#eef3f0;           /* off-white text */
+    --ink-dim:#9aa8a1;       /* muted text */
+    --line:rgb(255 255 255 / .10);
+    --accent:#c4f000;        /* electric pickleball lime - single locked accent */
+    --accent-deep:#8fb400;
+    --radius:16px;
+  }
+
+  *{ box-sizing:border-box; }
+  html,body{ height:100%; }
+  body{
+    margin:0;
+    background:var(--bg-0);
+    color:var(--ink);
+    font-family:"Geist","Outfit",ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;
+    text-rendering:optimizeLegibility;
+    overflow:hidden;
+  }
+
+  /* ---------- the animated background ---------- */
+  .bg-wrap{
+    position:fixed;
+    inset:0;
+    z-index:0;
+    overflow:hidden;
+    background:
+      radial-gradient(120% 90% at 78% -10%, rgb(196 240 0 / .10), transparent 55%),
+      radial-gradient(90% 80% at 10% 110%, rgb(60 90 70 / .18), transparent 60%),
+      var(--bg-0);
+  }
+  #pb-bg{
+    position:absolute;
+    inset:0;
+    width:100%;
+    height:100%;
+    display:block;
+  }
+  /* cinematic top layers: vignette + grain, fixed & non-interactive */
+  .vignette{
+    position:fixed; inset:0; z-index:1; pointer-events:none;
+    background:radial-gradient(130% 100% at 50% 42%, transparent 52%, rgb(0 0 0 / .55) 100%);
+  }
+  .grain{
+    position:fixed; inset:0; z-index:2; pointer-events:none;
+    opacity:.045; mix-blend-mode:overlay;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+  }
+
+  /* ---------- foreground stage (your real UI goes here) ---------- */
+  .stage{
+    position:relative;
+    z-index:3;
+    min-height:100dvh;
+    display:grid;
+    grid-template-rows:auto 1fr auto;
+  }
+
+  /* top bar (kept to one line, <= 72px) */
+  .topbar{
+    height:64px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:0 clamp(18px,4vw,44px);
+  }
+  .brand{ display:flex; align-items:center; gap:11px; font-weight:600; letter-spacing:-.01em; }
+  .brand .mark{
+    width:30px; height:30px; border-radius:9px;
+    display:grid; place-items:center;
+    background:linear-gradient(150deg,var(--accent),var(--accent-deep));
+    color:#0c1211; flex:none;
+    box-shadow:0 6px 18px rgb(196 240 0 / .28);
+  }
+  .brand .mark svg{ width:18px; height:18px; }
+  .brand b{ font-size:15px; }
+  .brand span{ color:var(--ink-dim); font-weight:500; }
+  .top-actions{ display:flex; align-items:center; gap:10px; }
+  .ghost-link{
+    color:var(--ink-dim); text-decoration:none; font-size:14px; font-weight:500;
+    padding:9px 14px; border-radius:10px; transition:color .2s ease, background .2s ease;
+  }
+  .ghost-link:hover{ color:var(--ink); background:rgb(255 255 255 / .05); }
+
+  /* center: glass sign-in card overlay */
+  .center{ display:grid; place-items:center; padding:24px; }
+
+  .card{
+    width:min(400px,100%);
+    border-radius:var(--radius);
+    padding:34px 30px 30px;
+    position:relative;
+    isolation:isolate;
+    overflow:hidden;
+    border:1px solid rgb(255 255 255 / .12);
+    background:linear-gradient(150deg, rgb(255 255 255 / .07), rgb(255 255 255 / .025));
+    backdrop-filter:blur(26px) saturate(160%);
+    -webkit-backdrop-filter:blur(26px) saturate(160%);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / .16),
+      inset 0 -1px 0 rgb(255 255 255 / .04),
+      0 30px 80px rgb(0 0 0 / .55);
+  }
+  .card::before{ /* soft top highlight sweep */
+    content:""; position:absolute; inset:0; z-index:-1; border-radius:inherit; pointer-events:none;
+    background:radial-gradient(120% 60% at 20% -10%, rgb(196 240 0 / .16), transparent 46%);
+  }
+  .eyebrow{
+    display:inline-flex; align-items:center; gap:8px;
+    font-size:12px; color:var(--ink-dim); margin:0 0 14px;
+  }
+  .eyebrow i{ width:6px; height:6px; border-radius:50%; background:var(--accent); box-shadow:0 0 10px var(--accent); }
+  .card h1{
+    font-size:26px; line-height:1.12; letter-spacing:-.02em; margin:0 0 6px; font-weight:650;
+  }
+  .card .sub{ margin:0 0 24px; color:var(--ink-dim); font-size:14px; line-height:1.5; }
+
+  .field{ display:grid; gap:7px; margin-bottom:15px; }
+  .field label{ font-size:12.5px; color:var(--ink-dim); font-weight:500; }
+  .field input{
+    height:46px; border-radius:11px; padding:0 14px;
+    background:rgb(0 0 0 / .32);
+    border:1px solid rgb(255 255 255 / .12);
+    color:var(--ink); font-size:14.5px; font-family:inherit;
+    transition:border-color .2s ease, box-shadow .2s ease, background .2s ease;
+  }
+  .field input::placeholder{ color:rgb(220 230 224 / .42); }
+  .field input:focus{
+    outline:none;
+    border-color:var(--accent);
+    background:rgb(0 0 0 / .42);
+    box-shadow:0 0 0 3px rgb(196 240 0 / .18);
+  }
+  .row-between{ display:flex; align-items:center; justify-content:space-between; margin:-2px 0 20px; }
+  .row-between a{ color:var(--accent-deep); font-size:12.5px; text-decoration:none; font-weight:600; }
+  .row-between a:hover{ color:var(--accent); }
+  .remember{ display:flex; align-items:center; gap:8px; color:var(--ink-dim); font-size:12.5px; }
+  .remember input{ accent-color:var(--accent); width:15px; height:15px; }
+
+  .btn{
+    width:100%; height:48px; border:0; border-radius:12px; cursor:pointer;
+    font-family:inherit; font-size:15px; font-weight:650; letter-spacing:-.01em;
+    color:#0b0f0e;
+    background:linear-gradient(150deg,var(--accent),var(--accent-deep));
+    box-shadow:0 10px 30px rgb(196 240 0 / .28), inset 0 1px 0 rgb(255 255 255 / .35);
+    transition:transform .12s ease, box-shadow .2s ease, filter .2s ease;
+  }
+  .btn:hover{ filter:brightness(1.05); box-shadow:0 14px 38px rgb(196 240 0 / .38), inset 0 1px 0 rgb(255 255 255 / .4); }
+  .btn:active{ transform:scale(.985) translateY(1px); }
+
+  .divide{ display:flex; align-items:center; gap:12px; margin:20px 0; color:var(--ink-dim); font-size:12px; }
+  .divide::before,.divide::after{ content:""; height:1px; flex:1; background:var(--line); }
+
+  .oauth{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .oauth button{
+    height:44px; border-radius:11px; cursor:pointer; font-family:inherit; font-size:13.5px; font-weight:500;
+    color:var(--ink); display:flex; align-items:center; justify-content:center; gap:8px;
+    background:rgb(255 255 255 / .05); border:1px solid rgb(255 255 255 / .12);
+    transition:background .2s ease, border-color .2s ease, transform .12s ease;
+  }
+  .oauth button:hover{ background:rgb(255 255 255 / .09); border-color:rgb(255 255 255 / .2); }
+  .oauth button:active{ transform:scale(.98); }
+  .oauth svg{ width:16px; height:16px; }
+
+  .card .foot{ margin:22px 0 0; text-align:center; color:var(--ink-dim); font-size:13px; }
+  .card .foot a{ color:var(--ink); text-decoration:none; font-weight:600; }
+  .card .foot a:hover{ color:var(--accent); }
+
+  /* bottom hint strip (also a live demo control panel) */
+  .footbar{
+    display:flex; align-items:center; justify-content:center; gap:16px;
+    padding:16px; color:var(--ink-dim); font-size:12.5px; flex-wrap:wrap;
+  }
+  .footbar .pill{
+    display:inline-flex; align-items:center; gap:8px;
+    padding:7px 13px; border-radius:999px;
+    background:rgb(255 255 255 / .05); border:1px solid rgb(255 255 255 / .1);
+    color:var(--ink); cursor:pointer; font-family:inherit; font-size:12.5px;
+    transition:background .2s ease, border-color .2s ease;
+  }
+  .footbar .pill:hover{ background:rgb(255 255 255 / .09); border-color:rgb(255 255 255 / .2); }
+  .footbar .pill.active{ border-color:var(--accent); color:var(--accent); }
+  .footbar kbd{
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:11px;
+    background:rgb(0 0 0 / .4); border:1px solid var(--line); border-radius:5px; padding:1px 6px;
+  }
+
+  @media (max-width:520px){
+    .oauth{ grid-template-columns:1fr; }
+    .topbar .top-actions .ghost-link.hide-sm{ display:none; }
+  }
+
+  /* reduced motion: the JS also halts rAF; this ensures no residual transitions feel jumpy */
+  @media (prefers-reduced-motion:reduce){
+    *{ animation:none !important; }
+  }
+</style>
+</head>
+<body>
+  <div class="bg-wrap">
+    <canvas id="pb-bg"></canvas>
+  </div>
+  <div class="vignette"></div>
+  <div class="grain"></div>
+
+  <!-- FOREGROUND: replace .center contents with your real screen -->
+  <div class="stage">
+    <header class="topbar">
+      <div class="brand">
+        <span class="mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/><circle cx="9" cy="9" r="1.1" fill="currentColor"/><circle cx="15" cy="9" r="1.1" fill="currentColor"/><circle cx="12" cy="13" r="1.1" fill="currentColor"/><circle cx="9.5" cy="16" r="1.1" fill="currentColor"/></svg>
+        </span>
+        <b>Lindaville</b><span>Pickleball</span>
+      </div>
+      <nav class="top-actions">
+        <a class="ghost-link hide-sm" href="#">Courts</a>
+        <a class="ghost-link" href="#">Sign up</a>
+      </nav>
+    </header>
+
+    <main class="center">
+      <section class="card" aria-labelledby="signin-title">
+        <p class="eyebrow"><i></i> Members area</p>
+        <h1 id="signin-title">Welcome back to the court</h1>
+        <p class="sub">Book courts, join open play, and track your ladder ranking.</p>
+
+        <form onsubmit="return false">
+          <div class="field">
+            <label for="email">Email</label>
+            <input id="email" type="email" placeholder="you@example.com" autocomplete="email" />
+          </div>
+          <div class="field">
+            <label for="pass">Password</label>
+            <input id="pass" type="password" placeholder="••••••••" autocomplete="current-password" />
+          </div>
+          <div class="row-between">
+            <label class="remember"><input type="checkbox" /> Keep me signed in</label>
+            <a href="#">Forgot password?</a>
+          </div>
+          <button class="btn" type="submit">Sign in</button>
+
+          <div class="divide">or continue with</div>
+          <div class="oauth">
+            <button type="button">
+              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M21.35 11.1H12v3.83h5.35c-.23 1.4-1.63 4.1-5.35 4.1-3.22 0-5.85-2.66-5.85-5.94S8.78 7.15 12 7.15c1.83 0 3.06.78 3.76 1.45l2.56-2.47C16.7 4.6 14.6 3.7 12 3.7 6.98 3.7 2.9 7.78 2.9 12.8S6.98 21.9 12 21.9c5.1 0 8.48-3.58 8.48-8.63 0-.58-.06-1.02-.13-1.47z"/></svg>
+              Google
+            </button>
+            <button type="button">
+              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M16.37 1.43c.05 1.02-.35 2.03-1 2.77-.68.78-1.79 1.38-2.86 1.3-.07-.99.4-2.02 1.02-2.72.7-.79 1.9-1.36 2.84-1.35zM20 17.35c-.4.93-.6 1.35-1.12 2.17-.73 1.16-1.76 2.6-3.03 2.61-1.13.02-1.42-.74-2.96-.73-1.53 0-1.85.75-2.98.74-1.27-.02-2.24-1.32-2.97-2.47C1.9 18.3 1.66 14.1 3.3 11.87c.87-1.2 2.24-1.96 3.53-1.96 1.31 0 2.14.75 3.23.75 1.05 0 1.69-.75 3.2-.75 1.15 0 2.36.63 3.23 1.71-2.84 1.56-2.38 5.62.51 6.68z"/></svg>
+              Apple
+            </button>
+          </div>
+        </form>
+
+        <p class="foot">New to the club? <a href="#">Create an account</a></p>
+      </section>
+    </main>
+
+    <footer class="footbar">
+      <button class="pill" id="ctx-auth">Auth</button>
+      <button class="pill" id="ctx-landing">Landing</button>
+      <button class="pill" id="ctx-dashboard">Dashboard</button>
+      <span>Press <kbd>M</kbd> to pause motion. Honors reduced-motion.</span>
+    </footer>
+  </div>
+
+<script>
+/* =========================================================================
+   Live animated pickleball background - Canvas 2D
+   - devicePixelRatio-aware, resize-safe
+   - transform/opacity-only visual work, single rAF loop, cleanup on unload
+   - pauses on hidden tab; full static poster under prefers-reduced-motion
+   - exposes window.PickleBG.setDensity('auth'|'landing'|'dashboard')
+   ========================================================================= */
+(() => {
+  const canvas = document.getElementById('pb-bg');
+  const ctx = canvas.getContext('2d', { alpha: true });
+  const reduceMQ = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+  const ACCENT = '#c4f000';
+  let W = 0, H = 0, DPR = 1;
+  let raf = 0, running = false, last = 0;
+  let mode = 'auth';
+
+  // pointer parallax target (eased)
+  const pointer = { x: 0.5, y: 0.5, ex: 0.5, ey: 0.5 };
+
+  /* ---------------- entities ---------------- */
+  let balls = [];
+  let bokeh = [];
+  let court = null;
+
+  const rand = (a, b) => a + Math.random() * (b - a);
+
+  function densityFor(m){
+    // ball count tuned per surface so foreground UI stays readable
+    if (m === 'dashboard') return { balls: 5, bokeh: 14, blur: 0.55 };
+    if (m === 'landing')   return { balls: 9, bokeh: 20, blur: 0.7 };
+    return { balls: 7, bokeh: 18, blur: 0.62 }; // auth
+  }
+
+  function makeBall(){
+    const r = rand(14, 40);
+    const speed = rand(14, 44) / r;            // smaller balls drift faster
+    const ang = rand(0, Math.PI * 2);
+    return {
+      x: rand(0, W), y: rand(0, H),
+      r,
+      vx: Math.cos(ang) * speed,
+      vy: Math.sin(ang) * speed * 0.7,
+      spin: rand(-1, 1) * 0.9,
+      rot: rand(0, Math.PI * 2),
+      depth: (r - 14) / 26,                    // 0 far ... 1 near (for parallax + light)
+      hueShift: rand(-8, 8),
+    };
+  }
+
+  function makeBokeh(){
+    const r = rand(30, 130);
+    return {
+      x: rand(0, W), y: rand(0, H), r,
+      vx: rand(-6, 6) / r, vy: rand(-10, -3) / r,
+      a: rand(0.03, 0.10),
+      pulse: rand(0, Math.PI * 2),
+    };
+  }
+
+  function seed(){
+    const d = densityFor(mode);
+    balls = Array.from({ length: d.balls }, makeBall);
+    bokeh = Array.from({ length: d.bokeh }, makeBokeh);
+    court = buildCourt();
+  }
+
+  // faint perspective court grid, precomputed as normalized lines
+  function buildCourt(){
+    const lines = [];
+    const rows = 9, cols = 7;
+    for (let i = 0; i <= rows; i++) lines.push({ type:'h', t: i / rows });
+    for (let j = 0; j <= cols; j++) lines.push({ type:'v', t: j / cols });
+    return lines;
+  }
+
+  /* ---------------- sizing ---------------- */
+  function resize(){
+    DPR = Math.min(window.devicePixelRatio || 1, 2);
+    W = canvas.clientWidth; H = canvas.clientHeight;
+    canvas.width = Math.round(W * DPR);
+    canvas.height = Math.round(H * DPR);
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    if (!balls.length) seed();
+  }
+
+  /* ---------------- drawing ---------------- */
+  function drawCourt(){
+    // parallax offset from pointer, subtle
+    const ox = (pointer.ex - 0.5) * 26;
+    const oy = (pointer.ey - 0.5) * 18;
+    ctx.save();
+    ctx.lineWidth = 1;
+    for (const ln of court){
+      ctx.beginPath();
+      if (ln.type === 'h'){
+        // horizontal lines converge slightly toward center → soft perspective
+        const y = ln.t * H;
+        const squeeze = (0.5 - Math.abs(ln.t - 0.5)) * 0.10;
+        ctx.moveTo(-40 + W * squeeze + ox, y + oy);
+        ctx.lineTo(W + 40 - W * squeeze + ox, y + oy);
+        ctx.strokeStyle = `rgba(196,240,0,${0.05 + (0.5 - Math.abs(ln.t - 0.5)) * 0.05})`;
+      } else {
+        const x = ln.t * W;
+        ctx.moveTo(x + ox * 1.4, -40 + oy);
+        ctx.lineTo(x + ox * 1.4, H + 40 + oy);
+        ctx.strokeStyle = 'rgba(255,255,255,0.035)';
+      }
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function drawBokeh(dt){
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    for (const b of bokeh){
+      b.x += b.vx * dt; b.y += b.vy * dt; b.pulse += dt * 0.0012;
+      if (b.y + b.r < 0) { b.y = H + b.r; b.x = rand(0, W); }
+      if (b.x + b.r < 0) b.x = W + b.r;
+      if (b.x - b.r > W) b.x = -b.r;
+      const a = b.a * (0.7 + Math.sin(b.pulse) * 0.3);
+      const g = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, b.r);
+      g.addColorStop(0, `rgba(196,240,0,${a})`);
+      g.addColorStop(1, 'rgba(196,240,0,0)');
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  // a single perforated pickleball with rim light, motion trail and spin
+  function drawBall(ball, dt){
+    const par = 1 + ball.depth * 0.6; // near balls react more to pointer
+    const px = (pointer.ex - 0.5) * 40 * par;
+    const py = (pointer.ey - 0.5) * 28 * par;
+    const x = ball.x + px, y = ball.y + py;
+    const r = ball.r;
+
+    // motion trail (opacity-only, cheap)
+    const sp = Math.hypot(ball.vx, ball.vy);
+    if (sp > 0.02){
+      const tlen = Math.min(sp * 90, r * 3.2);
+      const nx = -ball.vx / sp, ny = -ball.vy / sp;
+      const tg = ctx.createLinearGradient(x, y, x + nx * tlen, y + ny * tlen);
+      tg.addColorStop(0, `rgba(196,240,0,${0.16 + ball.depth * 0.12})`);
+      tg.addColorStop(1, 'rgba(196,240,0,0)');
+      ctx.strokeStyle = tg;
+      ctx.lineWidth = r * 1.25;
+      ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + nx * tlen, y + ny * tlen); ctx.stroke();
+    }
+
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(ball.rot);
+
+    // body - radial shade for volume
+    const bg = ctx.createRadialGradient(-r * 0.35, -r * 0.4, r * 0.1, 0, 0, r);
+    const lum = 0.72 + ball.depth * 0.22;
+    bg.addColorStop(0, `rgba(${Math.round(206*lum)},${Math.round(248*lum)},${Math.round(30*lum)},1)`);
+    bg.addColorStop(0.7, `rgba(${Math.round(150*lum)},${Math.round(190*lum)},${Math.round(0)},1)`);
+    bg.addColorStop(1, `rgba(90,120,0,1)`);
+    ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fillStyle = bg; ctx.fill();
+
+    // perforations (the pickleball signature) - punched darker
+    ctx.globalCompositeOperation = 'multiply';
+    ctx.fillStyle = 'rgba(40,55,0,0.55)';
+    const holes = 7;
+    for (let i = 0; i < holes; i++){
+      const a = (i / holes) * Math.PI * 2;
+      const rr = r * 0.5;
+      const hx = Math.cos(a) * rr, hy = Math.sin(a) * rr;
+      ctx.beginPath(); ctx.arc(hx, hy, r * 0.12, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.beginPath(); ctx.arc(0, 0, r * 0.12, 0, Math.PI * 2); ctx.fill();
+    ctx.globalCompositeOperation = 'source-over';
+
+    // rim light + specular highlight
+    ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2);
+    ctx.lineWidth = 1.4;
+    ctx.strokeStyle = 'rgba(255,255,255,0.28)';
+    ctx.stroke();
+    const hl = ctx.createRadialGradient(-r*0.4, -r*0.5, 0, -r*0.4, -r*0.5, r*0.7);
+    hl.addColorStop(0, 'rgba(255,255,255,0.5)');
+    hl.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.beginPath(); ctx.arc(-r*0.35, -r*0.42, r*0.55, 0, Math.PI*2); ctx.fillStyle = hl; ctx.fill();
+
+    ctx.restore();
+  }
+
+  function step(ts){
+    if (!running) return;
+    const dt = Math.min(ts - last, 48) || 16; last = ts;
+
+    // ease pointer parallax
+    pointer.ex += (pointer.x - pointer.ex) * 0.05;
+    pointer.ey += (pointer.y - pointer.ey) * 0.05;
+
+    ctx.clearRect(0, 0, W, H);
+    drawCourt();
+    drawBokeh(dt);
+
+    for (const ball of balls){
+      ball.x += ball.vx * dt; ball.y += ball.vy * dt; ball.rot += ball.spin * dt * 0.002;
+      const m = ball.r + 60;
+      if (ball.x < -m) ball.x = W + m; else if (ball.x > W + m) ball.x = -m;
+      if (ball.y < -m) ball.y = H + m; else if (ball.y > H + m) ball.y = -m;
+    }
+    // paint far balls first for depth
+    balls.slice().sort((a,b)=>a.depth-b.depth).forEach(b => drawBall(b, dt));
+
+    raf = requestAnimationFrame(step);
+  }
+
+  /* ---------------- static poster (reduced motion / paused) ---------------- */
+  function renderStatic(){
+    cancelAnimationFrame(raf); running = false;
+    ctx.clearRect(0, 0, W, H);
+    pointer.ex = pointer.ey = 0.5;
+    drawCourt();
+    // one calm composed frame
+    for (const b of bokeh){ b.pulse = 0.6; }
+    ctx.save(); ctx.globalCompositeOperation = 'lighter';
+    for (const b of bokeh){
+      const g = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, b.r);
+      g.addColorStop(0, `rgba(196,240,0,${b.a})`); g.addColorStop(1, 'rgba(196,240,0,0)');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, Math.PI*2); ctx.fill();
+    }
+    ctx.restore();
+    balls.forEach(b => { b.vx = 0.01; b.vy = 0; drawBall(b, 0); });
+  }
+
+  /* ---------------- lifecycle ---------------- */
+  function start(){
+    if (reduceMQ.matches){ renderStatic(); return; }
+    if (running) return;
+    running = true; last = performance.now();
+    raf = requestAnimationFrame(step);
+  }
+  function stop(){ running = false; cancelAnimationFrame(raf); }
+
+  // pause when tab hidden → saves battery, respects perf
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) stop();
+    else if (!reduceMQ.matches && paused === false) start();
+  });
+
+  // pointer parallax (window-level; no per-frame React state, pure vars)
+  window.addEventListener('pointermove', e => {
+    pointer.x = e.clientX / window.innerWidth;
+    pointer.y = e.clientY / window.innerHeight;
+  }, { passive: true });
+
+  const onResize = () => { resize(); if (reduceMQ.matches || paused) renderStatic(); };
+  window.addEventListener('resize', onResize);
+
+  reduceMQ.addEventListener?.('change', () => { paused = false; resize(); reduceMQ.matches ? renderStatic() : start(); });
+
+  // manual pause toggle (M key + demo pills)
+  let paused = false;
+  function togglePause(force){
+    paused = typeof force === 'boolean' ? force : !paused;
+    if (paused) { stop(); renderStatic(); }
+    else if (!reduceMQ.matches) start();
+  }
+  window.addEventListener('keydown', e => { if (e.key === 'm' || e.key === 'M') togglePause(); });
+
+  // public API to re-tune density per surface
+  window.PickleBG = {
+    setDensity(m){ mode = m; seed(); resize(); (reduceMQ.matches || paused) ? renderStatic() : start(); },
+    pause: () => togglePause(true),
+    resume: () => togglePause(false),
+  };
+
+  // cleanup
+  window.addEventListener('beforeunload', () => {
+    stop();
+    window.removeEventListener('resize', onResize);
+  });
+
+  /* ---------------- demo wiring (safe to delete) ---------------- */
+  const pills = { auth:'ctx-auth', landing:'ctx-landing', dashboard:'ctx-dashboard' };
+  function setActivePill(m){
+    Object.entries(pills).forEach(([k,id]) => {
+      document.getElementById(id).classList.toggle('active', k === m);
+    });
+  }
+  Object.entries(pills).forEach(([k,id]) => {
+    document.getElementById(id).addEventListener('click', () => { window.PickleBG.setDensity(k); setActivePill(k); });
+  });
+  setActivePill('auth');
+
+  /* boot */
+  resize();
+  start();
+})();
+</script>
+</body>
+</html>
+
