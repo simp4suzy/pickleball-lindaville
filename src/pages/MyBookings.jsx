@@ -68,6 +68,25 @@ function isInAppBrowser() {
   )
 }
 
+// Detect the Facebook Messenger in-app browser specifically. On mobile, this is
+// the environment where the user reported that automatic downloads AND the
+// long-press "Save Image" fallback don't reliably save the ticket, so we route
+// it straight to the native OS share sheet ("share feed") instead.
+function isMessengerInApp() {
+  if (typeof navigator === 'undefined') return false
+  const ua = (navigator.userAgent || navigator.vendor || '').toLowerCase()
+  return /(messenger|fb_iab|fban|fbav|fbios)/.test(ua)
+}
+
+// Coarse mobile-phone/tablet check so the Messenger share-sheet path only
+// affects phones. Desktop and normal mobile browsers keep the existing
+// automatic <a download> behavior untouched.
+function isMobileDevice() {
+  if (typeof navigator === 'undefined') return false
+  const ua = (navigator.userAgent || navigator.vendor || '').toLowerCase()
+  return /(android|iphone|ipad|ipod|mobile|windows phone)/.test(ua)
+}
+
 function StatusBadge({ status }) {
   const cls = {
     reserved: 'badge-approved',
@@ -328,16 +347,41 @@ function TicketModal({ booking, onClose }) {
         return
       }
 
-      // 2) Fallback: some webviews block <a download> but still allow the OS
-      //    share sheet with a file attached. Offer it so the user can pick
-      //    "Save Image" / "Save to Photos" from there.
       const file = new File([blob], fileName, { type: 'image/png' })
-      if (
+      const canShareFile =
         typeof navigator !== 'undefined' &&
         typeof navigator.share === 'function' &&
         typeof navigator.canShare === 'function' &&
         navigator.canShare({ files: [file] })
-      ) {
+
+      // 1b) MOBILE MESSENGER ONLY: the in-app browser blocks automatic downloads,
+      //     and the user reported the inline long-press "Save Image" fallback
+      //     doesn't reliably save either. So on a phone inside Messenger we open
+      //     the native OS share sheet ("share feed") FIRST, letting the user
+      //     "Save to Photos" / share the ticket wherever they want. This path is
+      //     scoped to mobile Messenger only; every other device keeps the exact
+      //     behavior above (desktop + normal mobile browsers = automatic
+      //     download; other in-app browsers fall through to the shared logic).
+      if (isMobileDevice() && isMessengerInApp() && canShareFile) {
+        try {
+          await navigator.share({
+            files: [file],
+            title: 'Booking Reservation',
+            text: `Lindaville Phase 2 - Pickleball - ${makeReference(booking.id)}`,
+          })
+          // Share sheet completed (saved/shared) - done.
+          return
+        } catch (shareErr) {
+          // User dismissed the share sheet: stop quietly, nothing went wrong.
+          if (shareErr && shareErr.name === 'AbortError') return
+          // Any other error -> fall through to the inline long-press fallback.
+        }
+      }
+
+      // 2) Fallback: some webviews block <a download> but still allow the OS
+      //    share sheet with a file attached. Offer it so the user can pick
+      //    "Save Image" / "Save to Photos" from there.
+      if (canShareFile) {
         try {
           await navigator.share({
             files: [file],
@@ -362,7 +406,7 @@ function TicketModal({ booking, onClose }) {
       setSavedImageUrl(previewUrl)
       setDownloadError(
         inApp
-          ? 'Tip: press and hold the image below, then tap "Save Image". (Facebook Messenger blocks automatic downloads - opening this link in Chrome or Safari also works.)'
+          ? 'Tip: tap "Save image" to open the share sheet, then choose "Save to Photos" (or long-press the image below and tap "Save Image"). Opening this link in Chrome or Safari also works.'
           : 'Press and hold (or right-click) the image below, then choose "Save Image".',
       )
     } catch (err) {
