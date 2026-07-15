@@ -227,6 +227,28 @@ function TicketModal({ booking, onClose }) {
   // fallback that works on every device and browser.
   const [savedImageUrl, setSavedImageUrl] = useState('')
 
+  // MOBILE MESSENGER ONLY: the Facebook Messenger in-app webview enforces the
+  // Web Share API's "transient user activation" requirement very strictly.
+  // navigator.share() must be invoked SYNCHRONOUSLY inside the tap handler; if
+  // anything async (like rasterizing the ticket with html-to-image) runs first,
+  // the activation is consumed and Messenger rejects share() with a
+  // NotAllowedError -> the bugged blank screen with no share sheet the user saw.
+  //
+  // The fix: pre-generate the PNG File in the BACKGROUND as soon as the modal
+  // opens, and stash it in this ref. When the user taps "Save image", the tap
+  // handler can hand the already-built File straight to navigator.share() with
+  // no intervening await, so the user gesture is still "active" and the share
+  // sheet ("share feed") opens reliably. This ref/effect only runs on a phone
+  // inside Messenger; every other device keeps the untouched download path.
+  const preparedFileRef = useRef(null)
+  const isMobileMessenger =
+    typeof navigator !== 'undefined' && isMobileDevice() && isMessengerInApp()
+
+  // Holds the latest async handleDownload so the synchronous Messenger handler
+  // can fall back to it without adding it to its dependency list (which would
+  // change identities and complicate the gesture-preserving call chain).
+  const handleDownloadRef = useRef(null)
+
   // Keep the latest onClose in a ref so the effect below can run exactly ONCE
   // (on mount) and clean up exactly once (on unmount). MyBookings recreates
   // `onClose` (`() => setTicketBooking(null)`) on every render, so depending on
@@ -259,6 +281,121 @@ function TicketModal({ booking, onClose }) {
     }
   }, [savedImageUrl])
 
+  // Rasterize the ticket card to a high-resolution PNG Blob. Shared by the
+  // normal tap handler AND the mobile-Messenger background pre-generation so
+  // both paths produce an identical image.
+  //
+  // skipFonts:true is critical: our display/body fonts load cross-origin from
+  // Google Fonts, and without this flag html-to-image tries to fetch + inline
+  // those CORS-protected stylesheets/woff2 files, which frequently throws or
+  // hangs. Skipping font embedding lets the capture fall back to the
+  // already-rendered glyphs, which rasterizes fine.
+  const buildTicketBlob = useCallback(async () => {
+    if (!ticketRef.current) return null
+    return toBlob(ticketRef.current, {
+      // 2x for a crisp, retina-quality image; solid bg so no transparency.
+      pixelRatio: 2,
+      backgroundColor: '#ffffff',
+      cacheBust: true,
+      skipFonts: true,
+      // Don't try to serialize cross-origin <link>/<style> nodes that live
+      // outside the ticket; they add nothing and can trigger CORS errors.
+      filter: (node) => {
+        const tag = node.tagName ? node.tagName.toUpperCase() : ''
+        if (tag === 'LINK' || tag === 'SCRIPT') return false
+        return true
+      },
+    })
+  }, [])
+
+  // MOBILE MESSENGER ONLY: pre-generate the ticket File in the background as
+  // soon as the modal renders, so a later "Save image" tap can call
+  // navigator.share() synchronously (see preparedFileRef comment above). This
+  // effect is a no-op on every other device/browser, so nothing else changes.
+  useEffect(() => {
+    if (!isMobileMessenger) return
+    let cancelled = false
+    // Defer one frame so the ticket DOM is laid out before we rasterize it.
+    const raf = requestAnimationFrame(async () => {
+      try {
+        const blob = await buildTicketBlob()
+        if (cancelled || !blob) return
+        preparedFileRef.current = new File(
+          [blob],
+          `booking-${makeReference(booking.id)}.png`,
+          { type: 'image/png' },
+        )
+      } catch {
+        // If pre-generation fails we simply won't have a file ready; the tap
+        // handler still opens the share sheet with text so the "share feed"
+        // experience the user asked for is preserved.
+        preparedFileRef.current = null
+      }
+    })
+    return () => {
+      cancelled = true
+      cancelAnimationFrame(raf)
+      preparedFileRef.current = null
+    }
+  }, [isMobileMessenger, buildTicketBlob, booking.id])
+
+  // MOBILE MESSENGER ONLY tap handler. This runs SYNCHRONOUSLY inside the click
+  // so the browser's transient user activation is still valid when we call
+  // navigator.share(). We hand it the File that was pre-generated in the
+  // background (preparedFileRef) with NO await before share(), which is the
+  // whole point: the previous versions awaited toBlob() first, the activation
+  // expired, and Messenger rejected share() with NotAllowedError (the bugged
+  // blank screen). Nothing here touches desktop or normal-mobile behavior.
+  const handleMessengerShare = useCallback(() => {
+    if (typeof navigator === 'undefined' || typeof navigator.share !== 'function') {
+      // No Web Share support at all -> defer to the universal (async) path.
+      handleDownloadRef.current?.()
+      return
+    }
+
+    const readyFile = preparedFileRef.current
+    const shareText = `Lindaville Phase 2 - Pickleball - ${makeReference(booking.id)}`
+
+    // Prefer sharing the actual PNG file (best: "Save to Photos"), but ONLY when
+    // canShare confirms files are accepted, so we never trigger a guaranteed
+    // throw that would eat the gesture before the text fallback can run.
+    const canShareFile =
+      !!readyFile &&
+      (typeof navigator.canShare !== 'function' || navigator.canShare({ files: [readyFile] }))
+
+    // Build the share payload synchronously, then call share() immediately.
+    const sharePayload = canShareFile
+      ? { files: [readyFile], title: 'Booking Reservation', text: shareText }
+      : { title: 'Booking Reservation', text: shareText }
+
+    // Call share() directly inside the gesture -> share sheet ("share feed")
+    // opens. We DON'T await anything before this line.
+    const sharePromise = navigator.share(sharePayload)
+
+    if (sharePromise && typeof sharePromise.catch === 'function') {
+      sharePromise.catch((shareErr) => {
+        // User dismissed the sheet: nothing went wrong, stay quiet.
+        if (shareErr && shareErr.name === 'AbortError') return
+        // A file share was rejected mid-flight: retry with text only. This is
+        // still allowed because the original tap opened the sheet; if the
+        // browser has since dropped activation, we quietly surface the inline
+        // long-press image fallback so the user can still save the ticket.
+        if (canShareFile) {
+          const retry = navigator.share({ title: 'Booking Reservation', text: shareText })
+          if (retry && typeof retry.catch === 'function') {
+            retry.catch((retryErr) => {
+              if (retryErr && retryErr.name === 'AbortError') return
+              handleDownloadRef.current?.()
+            })
+          }
+          return
+        }
+        // Any other failure -> universal inline fallback.
+        handleDownloadRef.current?.()
+      })
+    }
+  }, [booking.id])
+
   // Render the ticket card to a high-resolution PNG and save it.
   //
   // Cross-device strategy. There is no single API that "saves an image" on
@@ -286,30 +423,8 @@ function TicketModal({ booking, onClose }) {
     })
 
     try {
-      // Produce a real PNG Blob (not a giant data URL).
-      //
-      // skipFonts:true is critical here. Our display/body fonts load from
-      // Google Fonts (fonts.googleapis.com / fonts.gstatic.com), which are
-      // cross-origin. Without this flag html-to-image tries to fetch and
-      // inline those stylesheets + woff2 files; the CORS-protected requests
-      // frequently throw or hang, which was making "Save image" fail or take
-      // forever. Skipping font embedding lets the capture fall back to the
-      // already-rendered glyphs / system font stack, which rasterizes fine.
-      const blob = await toBlob(ticketRef.current, {
-        // 2x for a crisp, retina-quality image; solid bg so no transparency.
-        pixelRatio: 2,
-        backgroundColor: '#ffffff',
-        cacheBust: true,
-        skipFonts: true,
-        // Don't try to serialize cross-origin <link>/<style> nodes that live
-        // outside the ticket; they add nothing to the rasterized card and can
-        // trigger CORS errors during cloning.
-        filter: (node) => {
-          const tag = node.tagName ? node.tagName.toUpperCase() : ''
-          if (tag === 'LINK' || tag === 'SCRIPT') return false
-          return true
-        },
-      })
+      // Produce a real PNG Blob via the shared rasterizer (see buildTicketBlob).
+      const blob = await buildTicketBlob()
       if (!blob) throw new Error('Image generation returned an empty blob.')
 
       const fileName = `booking-${makeReference(booking.id)}.png`
@@ -455,7 +570,13 @@ function TicketModal({ booking, onClose }) {
     } finally {
       setDownloading(false)
     }
-  }, [booking.id, downloading])
+  }, [booking.id, downloading, buildTicketBlob])
+
+  // Keep the ref pointing at the latest async handleDownload so the synchronous
+  // Messenger handler can use it as a fallback without a dependency on it.
+  useEffect(() => {
+    handleDownloadRef.current = handleDownload
+  }, [handleDownload])
 
   if (!booking) return null
 
@@ -540,7 +661,7 @@ function TicketModal({ booking, onClose }) {
         <div className="mt-3 shrink-0">
           <button
             type="button"
-            onClick={handleDownload}
+            onClick={isMobileMessenger ? handleMessengerShare : handleDownload}
             disabled={downloading}
             className="btn btn-amber w-full py-3 text-sm font-extrabold disabled:cursor-wait"
           >
